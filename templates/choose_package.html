@@ -6,11 +6,15 @@
 
 {% block main %}
     <h3>Choose a package!</h3>
-        <form action="{{ action }}_cards" method="GET">
-            {% for package in packages %}
-                <button type="submit" name="package_name" value="{{ package.name }}">{{ package.name }}</button>
-            {% endfor %}
-        </form>
+        {% if not packages %}
+            <p>You haven't created any packages yet!</p>
+        {% else %}
+            <form action="{{ action }}_cards" method="GET">
+                {% for package in packages %}
+                    <button type="submit" name="package_name" value="{{ package.name }}">{{ package.name }}</button>
+                {% endfor %}
+            </form>
+        {% endif %}
     {% if action == "add" %}
         <h3>Create a new package</h3>
         <form action="/add_package" method="POST">
