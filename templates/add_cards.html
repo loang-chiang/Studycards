@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Add new cards
+{% endblock %}
+
+{% block main %}
+    <div class="finder">
+        <p>Add a flashcard to the {{ package_name }} package</p>
+    </div>
+    <form action="/add_cards" method="POST">
+        <table>
+            <thead>
+                <th>Question</th>
+                <th>Answer</th>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="question" type="text"></textarea>
+                    </td>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="answer" type="text"></textarea>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <input type="hidden" name="package_name" value="{{ package_name }}">
+        <button type="submit">Submit</button>
+    </form>
+    <a class="homepage" href="/">Back to homepage</a>
+{% endblock %}

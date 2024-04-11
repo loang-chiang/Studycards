@@ -1,0 +1,49 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Edit cards
+{% endblock %}
+
+{% block main %}
+    {% if not flashcards %}
+        <p>There are no cards to display in this package!</p>
+    {% else %}
+    <div class="finder">
+        <p>Edit a flashcard from the {{ package_name }} package</p>
+    </div>
+        <table>
+            <thead>
+                <th>Question</th>
+                <th>Answer</th>
+            </thead>
+            <tbody>
+                {% for flashcard in flashcards %}
+                <tr>
+                    <td>{{ flashcard.question }}</td>
+                    <td>{{ flashcard.answer }}</td>
+                    <td class="edit-and-delete">
+                        <form action="/edit_card" method="GET">
+                            <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
+                            <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+                            <button type="submit" id="table-button">Edit</button>
+                        </form>
+                    </td>
+                    <td class="edit-and-delete">
+                        <form action="/delete_card" method="POST">
+                            <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
+                            <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+                            <button type="submit" id="table-button">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+    <a href="/edit">Back</a>
+    <form action="/delete_package" method="POST">
+        <input type="hidden" name="package_name" value="{{ package_name }}">
+        <button type="submit">Delete package</button>
+    </form>
+    <a class="homepage" href="/">Back to homepage</a>
+{% endblock %}

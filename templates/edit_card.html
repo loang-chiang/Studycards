@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Edit cards
+{% endblock %}
+
+{% block main %}
+    <div class="finder">
+        <p>Edit a flashcard from the {{ package_name }} package</p>
+    </div>
+    <form action="/edit_card" method="POST">
+        <table>
+            <thead>
+                <th>Question</th>
+                <th>Answer</th>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="question" type="text">{{ flashcard.question }}</textarea>
+                    </td>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="answer" type="text">{{ flashcard.answer }}</textarea>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
+        <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+        <button type="submit">Submit</button>
+    </form>
+    <form action="/edit_cards" method="GET">
+        <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+        <button type="submit">Back</button>
+    </form>
+    <a class="homepage" href="/">Back to homepage</a>
+{% endblock %}

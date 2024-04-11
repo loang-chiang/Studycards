@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Log in
+{% endblock %}
+
+{% block main %}
+    <h2>Log into your account!</h2>
+    <form action="/login" method="POST">
+        <input class="login-register-inputs" name="username" placeholder="Username" type="text">
+        <input class="login-register-inputs" name="password" placeholder="Password" type="password">
+        <button type="submit">Log In</button>
+    </form>
+    <h3 id="register">Don't have an account yet?</h3>
+    <a class="Register" href="/register">Register now!</a>
+{% endblock %}

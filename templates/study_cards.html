@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Study
+{% endblock %}
+
+{% block main %}
+    <div class="finder">
+        <p>Flashcard {{ current_question_index + 1 }} of {{ length }} in {{ package_name }} package</p>
+    </div>
+    <h3>Question:</h3>
+    <div class="QandA">
+        <p class="QandA-text">{{ question }}</p>
+    </div>
+    {% if show_answer %}
+        <h3>Answer:</h3>
+        <div class="QandA">
+            <p class="QandA-text">{{ answer }}</p>
+        </div>
+    {% endif %}
+    {% if not show_answer %}
+        <form action="/show_answer" method="POST">
+            <!-- hidden inputs to store the package name and index -->
+            <input type="hidden" name="package_name" value="{{ package_name }}">
+            <input type="hidden" name="current_question_index" value="{{ current_question_index }}">
+            <!-- button to load the next question -->
+            <button class="button" type="submit">Show Answer</button>
+        </form>
+    {% endif %}
+    <form action="/next_question" method="POST">
+        <!-- hidden inputs to store the package name and index -->
+        <input type="hidden" name="package_name" value="{{ package_name }}">
+        <input type="hidden" name="current_question_index" value="{{ current_question_index }}">
+        <!-- button to load the next question -->
+        <button class="button" type="submit">Next Question</button>
+    </form>
+    <a class="homepage" href="/">Back to homepage</a>
+{% endblock %}

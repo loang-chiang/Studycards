@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Register
+{% endblock %}
+
+{% block main %}
+    <h2>Create a new account!</h2>
+    <form action="/register" method="POST">
+        <input class="login-register-inputs" name="username" placeholder="Username" type="text">
+        <input class="login-register-inputs" name="password" placeholder="Password" type="password">
+        <input class="login-register-inputs" name="confirmation" placeholder="Password again" type="password">
+        <button type="submit">Register</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Homepage
+{% endblock %}
+
+{% block main %}
+    <h2>The best study method!</h2>
+    <p id="welcome">
+        Welcome! This program will help you study more efficiently by allowing you to create flashcards with questions and
+        answers. You can also order these cards by creating packages to store them in. <b>Have fun!</b>
+    </p>
+    <div>
+        <a href="/study">Study</a>
+        <a href="/add">Add cards</a>
+        <a href="/edit">Edit cards</a>
+    </div>
+    <div>
+        <a id="log-out" href="/logout">Log out</a>
+    </div>
+{% endblock %}
