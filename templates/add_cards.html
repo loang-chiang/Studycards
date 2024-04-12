@@ -8,8 +8,8 @@
     <div class="finder">
         <p>Add a flashcard to the {{ package_name }} package</p>
     </div>
-    <form action="/add_cards" method="POST">
-        <table>
+    <form action="/add_cards" method="POST" id="desktop-table">
+        <table>  <!-- table for desktop users -->
             <thead>
                 <th>Question</th>
                 <th>Answer</th>
@@ -25,8 +25,34 @@
                 </tr>
             </tbody>
         </table>
+    </form>
+
+    <form action="/add_cards" method="POST" id="mobile-table">
+        <table>  <!-- table for mobile users -->
+            <thead>
+                <tr>
+                    <th>Question</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="question" type="text"></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td id="fake-header">Answer</td>
+                </tr>
+                <tr>
+                    <td>
+                        <textarea class="large-input" autocomplete="off" name="answer" type="text"></textarea>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
         <input type="hidden" name="package_name" value="{{ package_name }}">
         <button type="submit">Submit</button>
     </form>
+
     <a class="homepage" href="/">Back to homepage</a>
 {% endblock %}

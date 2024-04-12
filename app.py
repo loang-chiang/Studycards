@@ -2,14 +2,12 @@ import os
 
 from cs50 import SQL
 from flask import Flask, flash, redirect, render_template, request, session, abort, url_for
-import logging  # JUST FOR DEBUGGING DELETE LATER
 from flask_session import Session
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # configures application
 app = Flask(__name__)
-app.debug = True  # DELETE THIS ONCE DONE DEBUGGING
 
 # configures session to use filesystem instead of signed cookies
 app.config["SESSION_PERMANENT"] = False

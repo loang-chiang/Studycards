@@ -11,7 +11,8 @@
     <div class="finder">
         <p>Edit a flashcard from the {{ package_name }} package</p>
     </div>
-        <table>
+
+        <table id="desktop-table">
             <thead>
                 <th>Question</th>
                 <th>Answer</th>
@@ -21,14 +22,14 @@
                 <tr>
                     <td>{{ flashcard.question }}</td>
                     <td>{{ flashcard.answer }}</td>
-                    <td class="edit-and-delete">
+                    <td>
                         <form action="/edit_card" method="GET">
                             <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
                             <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
                             <button type="submit" id="table-button">Edit</button>
                         </form>
                     </td>
-                    <td class="edit-and-delete">
+                    <td>
                         <form action="/delete_card" method="POST">
                             <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
                             <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
@@ -39,6 +40,34 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        <table id="mobile-table">
+            <thead>
+                <th>Question</th>
+                <th>Answer</th>
+            </thead>
+            <tbody>
+                {% for flashcard in flashcards %}
+                <tr>
+                    <td>{{ flashcard.question }}</td>
+                    <td>{{ flashcard.answer }}</td>
+                    <td>
+                        <form action="/edit_card" method="GET">
+                            <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
+                            <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+                            <button type="submit" id="table-button">Edit</button>
+                        </form>
+                        <div class="blank-box"></div>
+                        <form action="/delete_card" method="POST">
+                            <input type="hidden" name="flashcard_id" value="{{ flashcard.id }}">
+                            <input type="hidden" name="package_name" value="{{ flashcard.package_name }}">
+                            <button type="submit" id="table-button">Delete</button>
+                        </form>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
     {% endif %}
     <a href="/edit">Back</a>
     <form action="/delete_package" method="POST">
