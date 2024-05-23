@@ -1,13 +1,17 @@
 import os
 
-from cs50 import SQL
 from flask import Flask, flash, redirect, render_template, request, session, abort, url_for
 from flask_session import Session
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import Integer, String, ForeignKey
 from functools import wraps
 from werkzeug.security import check_password_hash, generate_password_hash
 
 # configures application
 app = Flask(__name__)
+app.debug = True
 
 # configures session to use filesystem instead of signed cookies
 app.config["SESSION_PERMANENT"] = False
@@ -15,10 +19,44 @@ app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_FILE_DIR"] = "./flask_session_cache"
 Session(app)
 
-# configures the SQLite database
-# includes USERS (id, username, hash), PACKAGES (user_id, name), FLASHCARDS (id, user_id, package_name, question, answer)
-db = SQL("sqlite:///flashcards.db")
 
+# DATABASE CONFIGURATION
+class Base(DeclarativeBase):
+    pass
+db = SQLAlchemy(model_class=Base)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
+db.init_app(app)
+
+# model declaration
+class User(db.Model):
+    __tablename__ = 'User'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column()
+    hash: Mapped[str] = mapped_column()
+
+class Package(db.Model):
+    __tablename__ = 'Package'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("User.id"))
+    name: Mapped[str] = mapped_column()
+
+class Flashcard(db.Model):
+    __tablename__ = 'Flashcard'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("User.id"))
+    package_name: Mapped[str] = mapped_column(ForeignKey("Package.id"))
+    question: Mapped[str] = mapped_column()
+    answer: Mapped[str] = mapped_column()
+
+with app.app_context():
+    db.create_all()
+
+
+# PYTHON FUNCTIONS
 
 @app.after_request
 def after_request(response):  # disables caching of the response
@@ -55,15 +93,21 @@ def register():  # registers new users
         elif request.form.get("password") != request.form.get("confirmation"):
             return render_template("error.html", message="Passwords do not match")
 
-        names = db.execute(  # queries database to check if username already exists
-            "SELECT username FROM users WHERE username = ?",
-            request.form.get("username"),)
-        if names:
+        # queries database to check if username already exists
+        username = request.form.get("username")
+        print(username)
+        users = list(db.session.execute(db.select(User).filter_by(username=username)).scalars())
+        if len(users) > 0:
             return render_template("error.html", message="Username already exists")
 
-        db.execute(  # inserts new user into the database
-            "INSERT INTO users (username, hash) VALUES (?, ?)",
-            request.form.get("username"), generate_password_hash(request.form.get("password")),)
+        # inserts new user into the database
+        hashed_password = generate_password_hash(request.form.get("password"))
+        user = User(
+            username=username,
+            hash=hashed_password
+        )
+        db.session.add(user)
+        db.session.commit()
 
         # gets user back to login page
         return redirect("/login")
@@ -83,15 +127,18 @@ def login():  # logs users in
             return render_template("error.html", message="Must provide password")
 
         # queries database for username
-        rows = db.execute("SELECT * FROM users WHERE username = ?", request.form.get("username"))
+        username = request.form.get("username")
 
-        # checks if username exists and password are correct
-        if len(rows) != 1 or not check_password_hash(
-            rows[0]["hash"], request.form.get("password")
-        ):
+        try:
+            user = db.session.execute(db.select(User).filter_by(username=username)).scalar_one()
+        except NoResultFound:
             return render_template("error.html", message="Invalid username and/or password")
 
-        session["user_id"] = rows[0]["id"]  # remembers which user has logged in
+        # checks if username exists and password are correct
+        if not user or not check_password_hash(user.hash, request.form.get("password")):
+            return render_template("error.html", message="Invalid username and/or password")
+
+        session["user_id"] = user.id  # remembers which user has logged in
         return redirect("/")
 
     else:
@@ -109,7 +156,10 @@ def logout():  # allows the user to log out of their account
 @login_required
 def choose_package(mode):  # shows all packages to choose from
     if mode == "study" or mode == "add" or mode == "edit":
-        packages = db.execute("SELECT * FROM packages WHERE user_id = ?", session["user_id"])
+        packages = db.session.execute(db.select(Package).filter_by(user_id=session["user_id"])).scalars()
+
+        # packages = db.execute("SELECT * FROM packages WHERE user_id = ?", session["user_id"])
+
         return render_template("choose_package.html", action=mode, packages=packages)
     else:
         # handles invalid mode
@@ -120,13 +170,15 @@ def choose_package(mode):  # shows all packages to choose from
 @login_required
 def study_cards():  # outputs the first question
     package_name = request.args.get("package_name")
-    flashcards = db.execute("SELECT * FROM flashcards WHERE package_name = ?", package_name)
+
+    flashcards = list(db.session.execute(db.select(Flashcard).filter_by(package_name=package_name)).scalars())
+
     length = len(flashcards)
     show_answer = False  # initially sets show_answer to false
 
     if flashcards:
-        return render_template("study_cards.html", flashcards=flashcards, question=flashcards[0]['question'],
-                               answer=flashcards[0]['answer'], package_name=package_name, current_question_index=0,
+        return render_template("study_cards.html", flashcards=flashcards, question=flashcards[0].question,
+                               answer=flashcards[0].answer, package_name=package_name, current_question_index=0,
                                length=length, show_answer=show_answer)
     else:
         return render_template("no_cards.html")
@@ -137,15 +189,17 @@ def study_cards():  # outputs the first question
 def next_question():  # moves onto the next questions
     # gets necessary parameters
     package_name = request.form.get("package_name")
-    flashcards = db.execute("SELECT * FROM flashcards WHERE package_name = ?", package_name)
+
+    flashcards = list(db.session.execute(db.select(Flashcard).filter_by(package_name=package_name)).scalars())
+
     length = len(flashcards)
     current_question_index = int(request.form.get('current_question_index'))
     show_answer = False  # initially sets show_answer to false
 
     if current_question_index < len(flashcards) - 1:
         next_question_index = current_question_index + 1
-        return render_template("study_cards.html", question=flashcards[next_question_index]['question'],
-                               answer=flashcards[next_question_index]['answer'], package_name=package_name,
+        return render_template("study_cards.html", question=flashcards[next_question_index].question,
+                               answer=flashcards[next_question_index].answer, package_name=package_name,
                                current_question_index=next_question_index, length=length, show_answer=show_answer)
     else:  # if there are no more flashcards left
         return render_template('no_more_cards.html')
@@ -155,15 +209,17 @@ def next_question():  # moves onto the next questions
 @login_required
 def show_answer():  # shows the answer to the question the user selected
     package_name = request.form.get("package_name")
-    flashcards = db.execute("SELECT * FROM flashcards WHERE package_name = ?", package_name)
+
+    flashcards = list(db.session.execute(db.select(Flashcard).filter_by(package_name=package_name)).scalars())
+
     length = len(flashcards)
     current_question_index = int(request.form.get('current_question_index'))
 
     show_answer = True  # shows answer
 
     # reload the page
-    return render_template("study_cards.html", flashcards=flashcards, question=flashcards[current_question_index]['question'],
-                           answer=flashcards[current_question_index]['answer'], package_name=package_name,
+    return render_template("study_cards.html", flashcards=flashcards, question=flashcards[current_question_index].question,
+                           answer=flashcards[current_question_index].answer, package_name=package_name,
                            current_question_index=current_question_index, length=length, show_answer=show_answer)
 
 
@@ -179,8 +235,15 @@ def add_cards():  # lets the user add flashcards to a package
             return render_template("error.html", message="Can't leave any textfields blank!")
 
         # adds the new cards to the database using the question and answer from add_cards
-        db.execute("INSERT INTO flashcards (user_id, package_name, question, answer) VALUES (?, ?, ?, ?)",
-                   session["user_id"], package_name, question, answer)
+        flashcard = Flashcard(
+            user_id=session["user_id"],
+            package_name=package_name,
+            question=question,
+            answer=answer
+        )
+        db.session.add(flashcard)
+        db.session.commit()
+
         return render_template('add_cards.html', package_name=package_name)  # reloads the same page
 
     else:
@@ -192,21 +255,23 @@ def add_cards():  # lets the user add flashcards to a package
 @login_required
 def add_package():  # adds a new package to the packages table
     # checks if there's a package with that name already
-    same_name_packages = db.execute("SELECT * FROM packages WHERE user_id = ? AND name = ?",
-                                    session["user_id"], request.form.get("new_package_name"))
-    if same_name_packages:
+    name = request.form.get("new_package_name")
+    same_name_packages = list(db.session.execute(db.select(Package).filter_by(user_id=session["user_id"], name=name)).scalars())
+
+    if len(same_name_packages) > 0:
         return render_template("error.html", message="A package with that name already exists!")
     # if the user didn't write a name for the new package
     elif not request.form.get("new_package_name"):
         return render_template("error.html", message="Please provide a name for your package")
 
     # adds new package to database
-    db.execute("INSERT INTO packages (user_id, name) VALUES (?, ?)",
-               session["user_id"], request.form.get("new_package_name"))
-    package_name = request.form.get("new_package_name")
+    package = Package(
+        user_id=session["user_id"],
+        name=name
+    )
+    db.session.add(package)
+    db.session.commit()
 
-    # goes back to package selector page
-    packages = db.execute("SELECT * FROM packages WHERE user_id = ?", session["user_id"])
     return redirect(url_for('choose_package', mode='add'))  # calls choose_package with the add mode
 
 
@@ -214,8 +279,9 @@ def add_package():  # adds a new package to the packages table
 @login_required
 def edit_cards():  # lets the user choose what card they want to edit
     package_name = request.args.get("package_name")
-    flashcards = db.execute("SELECT * FROM flashcards WHERE user_id = ? AND package_name = ?",
-                            session["user_id"], package_name)
+
+    flashcards = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], package_name=package_name)).scalars()
+
     return render_template("edit_cards.html", flashcards=flashcards, package_name=package_name)
 
 
@@ -232,12 +298,15 @@ def edit_card():  # lets the user edit the question and answer of a card
         if not answer or not question:
             return render_template("error.html", message="Can't leave any textfields blank!")
 
-        db.execute("UPDATE flashcards SET question = ?, answer = ? WHERE user_id = ? AND id = ? AND package_name = ?",
-                   question, answer, session["user_id"], flashcard_id, package_name)
+        # updates database
+        flashcard = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], id=flashcard_id, package_name=package_name)).scalar_one()
+        flashcard.question = question
+        flashcard.answer = answer
+        db.session.commit()
 
         # redirects the user to the edit cards page
-        flashcards = db.execute("SELECT * FROM flashcards WHERE user_id = ? AND package_name = ?",
-                                session["user_id"], package_name)
+        flashcards = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], package_name=package_name)).scalars()
+
         return render_template("edit_cards.html", flashcards=flashcards, package_name=package_name)
 
     else:
@@ -245,10 +314,10 @@ def edit_card():  # lets the user edit the question and answer of a card
         flashcard_id = request.args.get("flashcard_id")
         package_name = request.args.get("package_name")
 
-        flashcard = db.execute("SELECT * FROM flashcards WHERE user_id = ? AND id = ? AND package_name = ?",
-                               session["user_id"], flashcard_id, package_name)
+        # queries db for flashcard
+        flashcard = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], id=flashcard_id, package_name=package_name)).scalar_one()
 
-        return render_template("edit_card.html", flashcard=flashcard[0], package_name=package_name)
+        return render_template("edit_card.html", flashcard=flashcard, package_name=package_name)
 
 
 @app.route("/delete_package", methods=["POST"])
@@ -257,16 +326,16 @@ def delete_package():
     # selects the flashcards belonging to the current package
     package_name = request.form.get("package_name")
 
-    flashcards = db.execute("SELECT * FROM flashcards WHERE user_id = ? AND package_name = ?",
-                            session["user_id"], package_name)
+    flashcards = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], package_name=package_name)).scalars()
 
     for flashcard in flashcards:  # deletes each flashcard inside the package
-        db.execute("DELETE FROM flashcards WHERE user_id = ? AND id = ? AND package_name = ?",
-                   session["user_id"], flashcard["id"], package_name)
+        db.session.delete(flashcard)
+        db.session.commit()
 
     # deletes the package itself
-    db.execute("DELETE FROM packages WHERE user_id = ? AND name = ?",
-               session["user_id"], package_name)
+    package = db.session.execute(db.select(Package).filter_by(user_id=session["user_id"], name=package_name)).scalar_one()
+    db.session.delete(package)
+    db.session.commit()
 
     return redirect("/")  # takes user back to homepage
 
@@ -279,10 +348,11 @@ def delete_card():  # lets the user delete a card's information
     package_name = request.form.get("package_name")
 
     # deletes flashcard from database
-    db.execute("DELETE FROM flashcards WHERE user_id = ? AND id = ? AND package_name = ?",
-               session["user_id"], flashcard_id, package_name)
+    flashcard = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], id=flashcard_id, package_name=package_name)).scalar_one()
+    db.session.delete(flashcard)
+    db.session.commit()
 
     # reloads the edit cards page
-    flashcards = db.execute("SELECT * FROM flashcards WHERE user_id = ? AND package_name = ?",
-                            session["user_id"], package_name)
+    flashcards = db.session.execute(db.select(Flashcard).filter_by(user_id=session["user_id"], package_name=package_name)).scalars()
+
     return render_template("edit_cards.html", flashcards=flashcards)
